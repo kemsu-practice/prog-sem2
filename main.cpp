@@ -16,7 +16,7 @@ using namespace std;
 float sign (wxPoint p1, wxPoint p2, wxPoint p3)
 {
     return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
-}
+};
 
 bool pointInTriangle (wxPoint pt, wxPoint v1, wxPoint v2, wxPoint v3)
 {
@@ -31,7 +31,7 @@ bool pointInTriangle (wxPoint pt, wxPoint v1, wxPoint v2, wxPoint v3)
     has_pos = (d1 > 0) || (d2 > 0) || (d3 > 0);
 
     return !(has_neg && has_pos);
-}
+};
 
 class SaveException
 {
@@ -89,7 +89,7 @@ public:
     std::string getError() const { return m_error; }
 };
 
-wxBrush* brush;
+wxBrush* brush = new wxBrush(*(new wxColour((unsigned long)rand())));
 
 class Figure
 {
@@ -167,14 +167,15 @@ public:
         f << GetY() << endl;
         f << GetZ() << endl;
         f << GetColour() << endl;
-    }
+    };
+
     void Load(ifstream& f)
     {
         f >> _x;
         f >> _y;
         f >> _z;
         f >> _color;
-    }
+    };
 };
 
 class Circle: public Figure
@@ -203,7 +204,7 @@ public:
     };
     static string GetType() {
         return "круг";
-    }
+    };
     void Draw(wxDC&  dc) {
         brush->SetColour(wxColour(GetColour()));
         dc.SetBrush(*brush); 
@@ -215,7 +216,7 @@ public:
     };
     float GetRadius() {
         return _r;
-    }
+    };
     bool IsClicked(int x, int y) {
         return sqrt(pow(x-GetX(), 2) + pow(y-GetY(), 2)) <= GetRadius();
     };
@@ -227,7 +228,7 @@ public:
     void Load(ifstream& f) {
         Figure::Load(f);
         f >> _r;
-    }
+    };
 };
 
 class Rectangle: public Figure
@@ -258,7 +259,7 @@ public:
     };
     static string GetType() {
         return "прямоугольник";
-    }
+    };
     void Draw(wxDC&  dc) {
         brush->SetColour(wxColour(GetColour()));
         dc.SetBrush(*brush); 
@@ -270,13 +271,13 @@ public:
     };
     void SetWidth(int w) {
         _w = w;
-    }
+    };
     int GetHeight() {
         return _h;
     };
     void SetHeight(int h) {
         _h = h;
-    }
+    };
     bool IsClicked(int x, int y) {
         return abs(x-GetX()) <= GetWidth() / 2 && abs(y-GetY()) <= GetHeight() / 2;
     };
@@ -290,7 +291,7 @@ public:
         Figure::Load(f);
         f >> _w;
         f >> _h;
-    }
+    };
 };
 
 class Triangle: public Figure
@@ -334,7 +335,7 @@ public:
     };
     static string GetType() {
         return "треугольник";
-    }
+    };
     void Draw(wxDC&  dc) {
         brush->SetColour(wxColour(GetColour()));
         dc.SetBrush(*brush); 
@@ -355,7 +356,7 @@ public:
     };
     void SetA(int a) {
         _a = a;
-    }
+    };
     int GetB() {
         return _b;
     };
@@ -367,7 +368,7 @@ public:
     };
     void SetC(int c) {
         _c = c;
-    }
+    };
     bool IsClicked(int x, int y) {
         wxPoint *points = new wxPoint[3];
         points[0] = wxPoint(GetX(),GetY());
@@ -392,7 +393,7 @@ public:
         f >> _a;
         f >> _b;
         f >> _c;
-    }
+    };
 };
 
 const int MAX_SIZE = 255;
@@ -411,7 +412,7 @@ void moveToFront(Figure** figures, int figuresCount, Figure* figure) {
         }
     }
     figure->SetZ(0);
-}
+};
 
 void addFigure(Figure** figures, int &figuresCount, Figure* figure) {
     for(int i = 0; i < figuresCount; i++) {
@@ -421,7 +422,7 @@ void addFigure(Figure** figures, int &figuresCount, Figure* figure) {
 
     figures[figuresCount] = figure;
     figuresCount++;
-}
+};
 
 void saveFigures(Figure** figures, int figuresCount) {
     ofstream f;
@@ -441,7 +442,7 @@ void saveFigures(Figure** figures, int figuresCount) {
         throw SaveException(ex.what());
     }
     f.close();
-}
+};
 
 void loadFigures(Figure** figures, int &figuresCount) {
     ifstream f = ifstream(FILE_NAME);
@@ -485,7 +486,7 @@ void loadFigures(Figure** figures, int &figuresCount) {
         f.close();
         throw;
     }
-}
+};
 
 void addRandomCircle(int maxX, int maxY) {
     int minRadius = 25;
@@ -495,7 +496,7 @@ void addRandomCircle(int maxX, int maxY) {
     Circle *circle = new Circle(x,y,radius,rand());
     cout << circle->Show() << endl;
     addFigure(figures, figuresCount, (Figure*)circle);
-}
+};
 
 void addRandomRectangle(int maxX, int maxY) {
     int minSize = 12;
@@ -507,7 +508,7 @@ void addRandomRectangle(int maxX, int maxY) {
     Rectangle *rectangle = new Rectangle(x,y,width*2,height*2,rand());
     cout << rectangle->Show() << endl;
     addFigure(figures, figuresCount, (Figure*)rectangle);
-}
+};
 
 void addRandomTriangle(int maxX, int maxY) {
     int minSize = 25;
@@ -522,7 +523,7 @@ void addRandomTriangle(int maxX, int maxY) {
     Triangle *triangle = new Triangle(x,y,a,b,c,rand());
     cout << triangle->Show() << endl;
     addFigure(figures, figuresCount, (Figure*)triangle);
-}
+};
 
 class BasicDrawPane : public wxPanel
 {
@@ -566,7 +567,7 @@ public:
         wxLogError("Unexpected exception has occurred: %s", error);
  
         return true;
-    }
+    };
 
     BasicDrawPane* drawPane;
     void OnCircleBtnClick( wxCommandEvent& event );
@@ -610,7 +611,7 @@ bool MyApp::OnInit()
 	
     frame->Show();
     return true;
-} 
+};
 
 BEGIN_EVENT_TABLE ( BasicDrawPane, wxPanel )
     EVT_MOTION ( BasicDrawPane::mouseMoved )
@@ -628,7 +629,7 @@ BEGIN_EVENT_TABLE ( MyApp, wxApp )
     EVT_BUTTON ( BUTTON_Load, MyApp::OnLoadBtnClick ) 
 END_EVENT_TABLE() 
 
- void BasicDrawPane::mouseMoved(wxMouseEvent& event) {
+void BasicDrawPane::mouseMoved(wxMouseEvent& event) {
     mouseX = event.GetX();
     mouseY = event.GetY();
     bool needToPaint = false;
@@ -662,9 +663,9 @@ END_EVENT_TABLE()
     if(needToPaint) {
         paintNow();
     }
- }
+};
 
- void BasicDrawPane::mouseDown(wxMouseEvent& event) {
+void BasicDrawPane::mouseDown(wxMouseEvent& event) {
     for(int z = 0; z < figuresCount; z++) {
         for(int i = 0; i < figuresCount; i++) {
             Figure *figure = figures[i];
@@ -678,13 +679,13 @@ END_EVENT_TABLE()
             }   
         }
     }
- }
+};
 
- void BasicDrawPane::mouseReleased(wxMouseEvent& event) {
+void BasicDrawPane::mouseReleased(wxMouseEvent& event) {
     movingFigure = 0;
- }
+};
 
- void BasicDrawPane::rightClick(wxMouseEvent& event) {
+void BasicDrawPane::rightClick(wxMouseEvent& event) {
     for(int z = 0; z < figuresCount; z++) {
         for(int i = 0; i < figuresCount; i++) {
             Figure *figure = figures[i];
@@ -695,25 +696,23 @@ END_EVENT_TABLE()
             }   
         }
     }
- }
+};
 
 BasicDrawPane::BasicDrawPane(wxFrame* parent) :
 wxPanel(parent)
-{
-    brush = new wxBrush(*(new wxColour((unsigned long)rand())));
-}
+{};
 
 void BasicDrawPane::paintEvent(wxPaintEvent & evt)
 {
     wxPaintDC dc(this);
     render(dc);
-}
+};
 
 void BasicDrawPane::paintNow()
 {
     wxClientDC dc(this);
     render(dc);
-}
+};
 
 void BasicDrawPane::render(wxDC&  dc)
 {
@@ -748,7 +747,7 @@ void BasicDrawPane::render(wxDC&  dc)
         dc.SetTextForeground(wxColour(255,255,255));
         dc.DrawText(focusFigure->Show(), rightX - textWidth, topY); 
     }
-}
+};
 
 void MyApp::OnCircleBtnClick( wxCommandEvent& event ) {
     cout << "Добавляем круг" << endl;
