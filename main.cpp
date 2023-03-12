@@ -13,6 +13,8 @@ using namespace std;
     #include <wx/wx.h>
 #endif
 
+
+// Функции для проверки клика в треугольник
 float sign (wxPoint p1, wxPoint p2, wxPoint p3)
 {
     return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
@@ -33,6 +35,7 @@ bool pointInTriangle (wxPoint pt, wxPoint v1, wxPoint v2, wxPoint v3)
     return !(has_neg && has_pos);
 };
 
+// Исключение для ошибок во время сохранения
 class SaveException
 {
 private:
@@ -47,6 +50,7 @@ public:
     std::string getError() const { return m_error; }
 };
 
+// Исключение для ошибок во время загрузки
 class LoadException
 {
 private:
@@ -61,13 +65,14 @@ public:
     std::string getError() const { return m_error; }
 };
 
-class WrongFigureType
+// Исключение для ошибок при загрузке типа фигуры
+class WrongFigureTypeException
 {
 private:
     std::string m_error;
 
 public:
-    WrongFigureType(std::string type)
+    WrongFigureTypeException(std::string type)
         : m_error{ fmt::format("Неверный тип фигуры: {}", type) }
     {
     }
@@ -75,13 +80,14 @@ public:
     std::string getError() const { return m_error; }
 };
 
-class WrongTriangleSize
+// Исключение для ошибок при загрузке сторон треугольника
+class WrongTriangleSizeException
 {
 private:
     std::string m_error;
 
 public:
-    WrongTriangleSize(float a, float b, float c)
+    WrongTriangleSizeException(float a, float b, float c)
         : m_error{ fmt::format("Неверные размеры сторон для треугольника: {:.2f}, {:.2f}, {:.2f}", a, b, c) }
     {
     }
@@ -89,8 +95,10 @@ public:
     std::string getError() const { return m_error; }
 };
 
+// Кисть для закраски фигур
 wxBrush* brush = new wxBrush(*(new wxColour((unsigned long)rand())));
 
+// Класс для фигур
 class Figure
 {
 private:
@@ -178,6 +186,7 @@ public:
     };
 };
 
+// Класс для кругов
 class Circle: public Figure
 {
 private:
@@ -231,6 +240,7 @@ public:
     };
 };
 
+// Класс для прямоугольников
 class Rectangle: public Figure
 {
 private:
@@ -294,6 +304,7 @@ public:
     };
 };
 
+// Класс для треугольников
 class Triangle: public Figure
 {
 private:
@@ -323,7 +334,7 @@ public:
         int minc = min(abs(_a-_b), abs(_b-_a));
         int maxc = _a+_b;
         if(_c < minc || _c > maxc) {
-            throw WrongTriangleSize(_a,_b,_c);
+            throw WrongTriangleSizeException(_a,_b,_c);
         }
     };
     double CalcArea() {
@@ -336,10 +347,7 @@ public:
     static string GetType() {
         return "треугольник";
     };
-    void Draw(wxDC&  dc) {
-        brush->SetColour(wxColour(GetColour()));
-        dc.SetBrush(*brush); 
-        dc.SetPen( wxPen( wxColor(0,0,0), 1 ) ); 
+    wxPoint *GetTrianglePoints() {
         wxPoint *points = new wxPoint[3];
         points[0] = wxPoint(GetX(),GetY());
         points[1] = wxPoint(GetX()+GetA(),GetY());
@@ -348,38 +356,43 @@ public:
         float h = sqrt(pow(GetB(), 2) - pow(a1, 2));
         wxPoint p = wxPoint(points[0].x + (a1*(points[1].x-points[0].x)/GetA()), points[0].y + (a1*(points[1].y-points[0].y)/GetA()));
         points[2] = wxPoint(p.x + (h*(points[1].y-points[0].y)/GetA()), p.y - (h*(points[1].x-points[0].x)/GetA()));
-
+        return points;
+    }
+    void Draw(wxDC&  dc) {
+        brush->SetColour(wxColour(GetColour()));
+        dc.SetBrush(*brush); 
+        dc.SetPen( wxPen( wxColor(0,0,0), 1 ) ); 
+        
+        wxPoint *points = GetTrianglePoints();
         dc.DrawPolygon(3, points);
+        delete points;
     };
     int GetA() {
         return _a;
     };
     void SetA(int a) {
         _a = a;
+        checkSizes();
     };
     int GetB() {
         return _b;
     };
     void SetB(int b) {
         _b = b;
+        checkSizes();
     }
     int GetC() {
         return _c;
     };
     void SetC(int c) {
         _c = c;
+        checkSizes();
     };
     bool IsClicked(int x, int y) {
-        wxPoint *points = new wxPoint[3];
-        points[0] = wxPoint(GetX(),GetY());
-        points[1] = wxPoint(GetX()+GetA(),GetY());
-
-        float a1 = (pow(GetB(), 2) - pow(GetC(), 2) + pow(GetA(), 2)) / (2 * GetA()); 
-        float h = sqrt(pow(GetB(), 2) - pow(a1, 2));
-        wxPoint p = wxPoint(points[0].x + (a1*(points[1].x-points[0].x)/GetA()), points[0].y + (a1*(points[1].y-points[0].y)/GetA()));
-        points[2] = wxPoint(p.x + (h*(points[1].y-points[0].y)/GetA()), p.y - (h*(points[1].x-points[0].x)/GetA()));
-
-        return pointInTriangle(wxPoint(x,y), points[0], points[1], points[2]);
+        wxPoint *points = GetTrianglePoints();
+        bool result = pointInTriangle(wxPoint(x,y), points[0], points[1], points[2]);
+        delete points;
+        return result;        
     };
     void Save(ofstream& f) {
         f << GetType() << endl;
@@ -400,11 +413,16 @@ const int MAX_SIZE = 255;
 const string FILE_NAME = "figures.txt";
 Figure* figures[MAX_SIZE];
 int figuresCount = 0;
-Figure* movingFigure = 0;
-Figure* focusFigure = 0;
+// Ссылка на перемещаемую фигуру
+Figure* movingFigure = nullptr;
+// Ссылка на фигуру, находящуюся под курсором
+Figure* focusFigure = nullptr;
+// Расстояние до центра после нажатия на фигуру
 int ddX, ddY;
+// Координаты мыши на канвасе
 int mouseX = 0, mouseY = 0;
 
+// Перемещение выбранной фигуры вперед по оси Z
 void moveToFront(Figure** figures, int figuresCount, Figure* figure) {
     for(int i = 0; i < figuresCount; i++) {
         if(figures[i]->GetZ() < figure->GetZ()) {
@@ -414,6 +432,7 @@ void moveToFront(Figure** figures, int figuresCount, Figure* figure) {
     figure->SetZ(0);
 };
 
+// Добавление фигуры в массив
 void addFigure(Figure** figures, int &figuresCount, Figure* figure) {
     for(int i = 0; i < figuresCount; i++) {
         figures[i]->SetZ(figures[i]->GetZ()+1);
@@ -475,7 +494,7 @@ void loadFigures(Figure** figures, int &figuresCount) {
             figure = (Figure*)triangle;
         }
         else {
-            throw WrongFigureType(type);
+            throw WrongFigureTypeException(type);
         }
         if(figure) {
             figures[figuresCount] = figure;
@@ -488,6 +507,8 @@ void loadFigures(Figure** figures, int &figuresCount) {
     }
 };
 
+// Добавляет круг случайного радиуса и по случайным координатам
+// Но вычисляет координаты и радиус так, чтобы круг полностью находился в прямоугольнике со сторонами maxX, maxY 
 void addRandomCircle(int maxX, int maxY) {
     int minRadius = 25;
     int x = minRadius + rand() % max(1, maxX - minRadius*2);
@@ -498,6 +519,8 @@ void addRandomCircle(int maxX, int maxY) {
     addFigure(figures, figuresCount, (Figure*)circle);
 };
 
+// Добавляет прямоугольник со случайной длиной и шириной и по случайным координатам
+// Но вычисляет координаты и размер так, чтобы прямоугольник полностью находился в прямоугольнике со сторонами maxX, maxY 
 void addRandomRectangle(int maxX, int maxY) {
     int minSize = 12;
     int x = minSize + rand() % max(1, maxX - minSize*2);
@@ -510,13 +533,15 @@ void addRandomRectangle(int maxX, int maxY) {
     addFigure(figures, figuresCount, (Figure*)rectangle);
 };
 
+// Добавляет треугольник со случайными сторонами и по случайным координатам
+// Сторону C вычисляет так, чтобы получившийся треугольник возможно было нарисовать
 void addRandomTriangle(int maxX, int maxY) {
     int minSize = 25;
     int x = rand() % max(1, maxX - minSize);
     int y = rand() % max(1, maxY - minSize);
     int a = minSize + rand() % (max(1, min({x, maxX - x}) - minSize));
     int b = minSize + rand() % (y - minSize);
-    int minc = min(abs(a-b), abs(b-a));
+    int minc = abs(a-b);
     int maxc = a+b;
     int c = minc + (rand() % (maxc-minc));
 
@@ -525,10 +550,11 @@ void addRandomTriangle(int maxX, int maxY) {
     addFigure(figures, figuresCount, (Figure*)triangle);
 };
 
+// Класс для канваса
 class BasicDrawPane : public wxPanel
 {
 public:
-    BasicDrawPane(wxFrame* parent);
+    BasicDrawPane(wxFrame* parent) : wxPanel(parent) {};
     
     void paintEvent(wxPaintEvent & evt);
     void paintNow();
@@ -543,6 +569,7 @@ public:
     DECLARE_EVENT_TABLE()
 };
 
+// Основной класс приложения
 class MyApp: public wxApp
 {
     bool OnInit();
@@ -556,7 +583,7 @@ public:
             error = e.getError();
         } catch (const SaveException& e) {
             error = e.getError();
-        } catch (const WrongTriangleSize& e) {
+        } catch (const WrongTriangleSizeException& e) {
             error = e.getError();
         } catch (const std::exception& e) {
             error = e.what();
@@ -592,21 +619,27 @@ IMPLEMENT_APP(MyApp)
 
 bool MyApp::OnInit()
 {
-    wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
-    wxFrame* frame = new wxFrame((wxFrame *)NULL, -1,  "Семестровая работа", wxPoint(50,50), wxSize(800,600));
-
-    wxGridSizer *gs = new wxGridSizer(2, 3, 3, 3);
-    gs->Add(new wxButton((wxFrame*) frame, BUTTON_Circle, "Круг"), 0, wxEXPAND);
-    gs->Add(new wxButton((wxFrame*) frame, BUTTON_Rectangle, "Прямоугольник"), 0, wxEXPAND);
-    gs->Add(new wxButton((wxFrame*) frame, BUTTON_Triangle, "Треугольник"), 0, wxEXPAND);
-    gs->Add(new wxButton((wxFrame*) frame, BUTTON_Save, "Сохранить"), 0, wxEXPAND);
-    gs->Add(new wxButton((wxFrame*) frame, BUTTON_Load, "Загрузить"), 0, wxEXPAND);
-    sizer->Add(gs, 0, wxEXPAND);
-
+    // Основное окно
+    wxFrame* frame = new wxFrame((wxFrame *)NULL, -1,  _T("Семестровая работа"), wxPoint(50,50), wxSize(800,600));
+    // Карвас
     drawPane = new BasicDrawPane( (wxFrame*) frame );
+
+    // Блок для отображения кнопок
+    wxGridSizer *gs = new wxGridSizer(2, 3, 3, 3);
+    gs->Add(new wxButton((wxFrame*) frame, BUTTON_Circle, _T("Круг")), 0, wxEXPAND);
+    gs->Add(new wxButton((wxFrame*) frame, BUTTON_Rectangle, _T("Прямоугольник")), 0, wxEXPAND);
+    gs->Add(new wxButton((wxFrame*) frame, BUTTON_Triangle, _T("Треугольник")), 0, wxEXPAND);
+    gs->Add(new wxButton((wxFrame*) frame, BUTTON_Save, _T("Сохранить")), 0, wxEXPAND);
+    gs->Add(new wxButton((wxFrame*) frame, BUTTON_Load, _T("Загрузить")), 0, wxEXPAND);
+
+    // Блок - вертикальная колонка 
+    wxBoxSizer* sizer = new wxBoxSizer(wxVERTICAL);
+    sizer->Add(gs, 0, wxEXPAND);
     sizer->Add(drawPane, 1, wxEXPAND);
 	
+    // Назначаем основному окну блок со всеми элементами
     frame->SetSizer(sizer);
+    // Обязательно вызываем SetAutoLayout, иначе размеры для блоков не пересчитаются
     frame->SetAutoLayout(true);
 	
     frame->Show();
@@ -633,31 +666,40 @@ void BasicDrawPane::mouseMoved(wxMouseEvent& event) {
     mouseX = event.GetX();
     mouseY = event.GetY();
     bool needToPaint = false;
+
+    //Если мы сейчас перемещаем какую-нибудь фигуру, то меняем её координаты
     if(movingFigure) {
         movingFigure->SetX(mouseX - ddX);
         movingFigure->SetY(mouseY - ddY);
         needToPaint = true;
     }
 
-    Figure *f = 0;
-    for(int z = 0; z < figuresCount; z++) {
-        if(f) {
-            break;
-        }
-        for(int i = 0; i < figuresCount; i++) {
-            Figure *figure = figures[i];
-            if(figure->GetZ() == z && figure->IsClicked(mouseX, mouseY)) {
-                f = figure;
+    //Оптимизация - ищем фигуру для которой будем отображать подсказку
+    Figure *f = nullptr;
+    if(movingFigure) {
+        f = movingFigure;
+    } else {
+        for(int z = 0; z < figuresCount; z++) {
+            if(f) {
                 break;
+            }
+            for(int i = 0; i < figuresCount; i++) {
+                Figure *figure = figures[i];
+                if(figure->GetZ() == z && figure->IsClicked(mouseX, mouseY)) {
+                    f = figure;
+                    break;
+                }
             }
         }
     }
-    if(!f && focusFigure) {
-        focusFigure = 0;
-        needToPaint = true;
-    }
+
+    // Перерисовываем канвас
+    // Если нашли фигуру с подсказкой
     if(f) {
         focusFigure = f;
+        needToPaint = true;
+    } else if(focusFigure) { // Если фигуры для подсказки нет, но она раньше была
+        focusFigure = nullptr;
         needToPaint = true;
     }
     if(needToPaint) {
@@ -665,47 +707,33 @@ void BasicDrawPane::mouseMoved(wxMouseEvent& event) {
     }
 };
 
+// Событие нажатия кнопки мыши на канвас
 void BasicDrawPane::mouseDown(wxMouseEvent& event) {
-    for(int z = 0; z < figuresCount; z++) {
-        for(int i = 0; i < figuresCount; i++) {
-            Figure *figure = figures[i];
-            if(figure->GetZ() == z && figure->IsClicked(event.GetX(), event.GetY())) {
-                moveToFront(figures, figuresCount, figure);
-                paintNow();
-                ddX = event.GetX() - figure->GetX();
-                ddY = event.GetY() - figure->GetY();
-                movingFigure = figure;
-                return;
-            }   
-        }
+    if(focusFigure) {
+        movingFigure = focusFigure;
+        moveToFront(figures, figuresCount, movingFigure);
+        paintNow();
+        //Запоминаем где находилась мышь по отношению к центру перемещаемой фигуры
+        ddX = event.GetX() - movingFigure->GetX();
+        ddY = event.GetY() - movingFigure->GetY();
     }
 };
 
 void BasicDrawPane::mouseReleased(wxMouseEvent& event) {
-    movingFigure = 0;
+    movingFigure = nullptr;
 };
 
 void BasicDrawPane::rightClick(wxMouseEvent& event) {
-    for(int z = 0; z < figuresCount; z++) {
-        for(int i = 0; i < figuresCount; i++) {
-            Figure *figure = figures[i];
-            if(figure->GetZ() == z && figure->IsClicked(event.GetX(), event.GetY())) {
-                figure->SetColour(rand());
-                paintNow();
-                return;
-            }   
-        }
+    if(focusFigure) {
+        focusFigure->SetColour(rand());
+        paintNow();
     }
 };
-
-BasicDrawPane::BasicDrawPane(wxFrame* parent) :
-wxPanel(parent)
-{};
 
 void BasicDrawPane::paintEvent(wxPaintEvent & evt)
 {
     wxPaintDC dc(this);
-    render(dc);
+    render(dc);// Рисуем подсказку к фигуре в виде обведенного текста
 };
 
 void BasicDrawPane::paintNow()
@@ -716,6 +744,9 @@ void BasicDrawPane::paintNow()
 
 void BasicDrawPane::render(wxDC&  dc)
 {
+    // Очистка канваса
+    dc.Clear();
+    // Рисуем фигруы по очереди, начиная с дальнего Z к ближнему
     for(int z = figuresCount-1; z >= 0; z--) {
         for(int i = 0; i < figuresCount; i++) {
             Figure *figure = figures[i];
@@ -726,6 +757,7 @@ void BasicDrawPane::render(wxDC&  dc)
         }
     }
 
+    // Рисуем подсказку к фигуре в виде обведенного текста
     if(focusFigure) {
         int maxX = GetSize().GetWidth();
         int textWidth = 0;
@@ -740,13 +772,15 @@ void BasicDrawPane::render(wxDC&  dc)
         int rightX = min(maxX, mouseX + textWidth);
         int topY = max(0, mouseY - textHeight);
         dc.SetTextForeground(wxColour(0,0,0));
-        dc.DrawText(focusFigure->Show(), rightX - textWidth-1, topY-1);
-        dc.DrawText(focusFigure->Show(), rightX - textWidth+1, topY+1);
-        dc.DrawText(focusFigure->Show(), rightX - textWidth-1, topY+1);
-        dc.DrawText(focusFigure->Show(), rightX - textWidth+1, topY-1);
+        auto text = focusFigure->Show();
+        dc.DrawText(text, rightX - textWidth-1, topY-1);
+        dc.DrawText(text, rightX - textWidth+1, topY+1);
+        dc.DrawText(text, rightX - textWidth-1, topY+1);
+        dc.DrawText(text, rightX - textWidth+1, topY-1);
         dc.SetTextForeground(wxColour(255,255,255));
-        dc.DrawText(focusFigure->Show(), rightX - textWidth, topY); 
+        dc.DrawText(text, rightX - textWidth, topY); 
     }
+    
 };
 
 void MyApp::OnCircleBtnClick( wxCommandEvent& event ) {
@@ -782,7 +816,7 @@ void MyApp::OnLoadBtnClick( wxCommandEvent& event ) {
     cout << "Загрузка" << endl;
     try {
         loadFigures(figures, figuresCount);
-    } catch (const WrongFigureType &error) {
+    } catch (const WrongFigureTypeException &error) {
         throw LoadException(error.getError());
     }
     drawPane->paintNow();
